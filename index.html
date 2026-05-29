@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>筋トレ＆エルゴ日報システム</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; padding: 15px; margin: 0; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .mode-selector { display: flex; gap: 10px; margin-bottom: 20px; }
+        .mode-btn { flex: 1; padding: 15px; font-size: 16px; font-weight: bold; border: 2px solid #ccc; border-radius: 12px; background: white; cursor: pointer; text-align: center; }
+        .mode-btn.active { border-color: #007bff; background: #e7f1ff; color: #007bff; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        label { font-weight: bold; display: block; margin-top: 12px; font-size: 14px; }
+        input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+        .hidden { display: none !important; }
+        
+        /* 筋トレ用動的フォーム */
+        .exercise-row { background: #f8f9fa; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #28a745; position: relative; }
+        .set-badge-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .set-badge { background: #e2e6ea; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+        .btn-add-set { background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 13px; }
+        
+        /* エルゴ用表示 */
+        .ergo-preview { background: #fff3cd; border: 1px solid #ffeeba; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center; }
+        .ergo-title { font-size: 20px; font-weight: bold; color: #856404; }
+        
+        .btn-submit { background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 16px; }
+        .loading-text { text-align: center; color: #007bff; font-weight: bold; display: none; margin-top: 10px; }
+        
+        /* 履歴表示 */
+        .history-item { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #6c757d; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+        .history-item.筋トレ { border-left-color: #28a745; }
+        .history-item.エルゴ { border-left-color: #ffc107; }
+        .detail-box { display: none; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ddd; }
+        .active-detail { display: block; }
+        .btn-detail-toggle { background: #17a2b8; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; margin-top: 5px; }
+        .filter-group { display: flex; gap: 10px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📋 記録・日報システム</h2>
+    
+    <div class="mode-selector">
+        <button class="mode-btn active" id="btn-mode-work" onclick="changeMode('筋トレ')">🏋️ 筋トレを記録</button>
+        <button class="mode-btn" id="btn-mode-ergo" onclick="changeMode('エルゴ')">🚣 エルゴを記録</button>
+    </div>
+
+    <div class="card">
+        <input type="hidden" id="edit-index" value="">
+        
+        <label>名前</label>
+        <select id="user-name">
+            <option value="選手A">選手A</option>
+            <option value="選手B">選手B</option>
+            <option value="選手C">選手C</option>
+        </select>
+
+        <label>日付</label>
+        <input type="date" id="work-date">
+
+        <div id="section-workout">
+            <label style="margin-top:20px;">種目追加</label>
+            <div style="display:flex; gap:5px; margin-top:5px;">
+                <select id="exercise-select" onchange="toggleCustomExercise()">
+                    <option value="スクワット">スクワット</option>
+                    <option value="ベンチプレス">ベンチプレス</option>
+                    <option value="デッドリフト">デッドリフト</option>
+                    <option value="ワンハンドローイング">ワンハンドローイング</option>
+                    <option value="アームカール">アームカール</option>
+                    <option value="ベンチプル">ベンチプル</option>
+                    <option value="ハイクリーン">ハイクリーン</option>
+                    <option value="アップライトロー">アップライトロー</option>
+                    <option value="その他">その他（自由入力）</option>
+                </select>
+                <input type="text" id="custom-exercise-name" class="hidden" placeholder="種目名を入力">
+                <button type="button" onclick="addExerciseRow()" style="background:#28a745; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer;">追加</button>
+            </div>
+            
+            <div id="workout-list-container"></div>
+        </div>
+
+        <div id="section-ergo" class="hidden">
+            <label style="margin-top:20px; color:#b58100;">📸 エルゴ液晶写真解析（PNG/JPEG対応）</label>
+            <input type="file" id="camera-input" accept="image/png, image/jpeg" style="display:none;" onchange="uploadErgoPhoto(this)">
+            <button type="button" onclick="document.getElementById('camera-input').click()" style="background:#ffc107; color:#212529; border:none; padding:12px; border-radius:8px; width:100%; cursor:pointer; margin-top:8px; font-weight:bold;">画像を読み込む</button>
+            <p id="ocr-loading" style="text-align:center; display:none; color:#ffc107; font-weight:bold;">AI解析中...</p>
+            
+            <div id="ergo-preview-box" class="hidden ergo-preview">
+                <div class="ergo-title" id="preview-ergo-title">--分UT</div>
+                <div style="margin-top:5px;" id="preview-ergo-split">500m平均: --</div>
+                <div style="font-size:12px; color:#666; margin-top:5px;">※詳細ラップデータも同時にバックグラウンド保存されます</div>
+            </div>
+        </div>
+
+        <label style="margin-top:15px;">メモ</label>
+        <textarea id="day-memo" rows="3" placeholder="気づいたことやコンディションなど"></textarea>
+
+        <button class="btn-submit" id="btn-save" onclick="handleSubmit()">データを同期・保存</button>
+        <p id="global-loading" class="loading-text">通信中...</p>
+    </div>
+
+    <h3>⏱️ 過去の履歴</h3>
+    <div class="filter-group">
+        <input type="date" id="filter-date" onchange="loadHistoryList()" placeholder="日付で絞り込み">
+        <select id="filter-user" onchange="loadHistoryList()">
+            <option value="">全員のデータ</option>
+            <option value="選手A">選手A</option>
+            <option value="選手B">選手B</option>
+            <option value="選手C">選手C</option>
+        </select>
+    </div>
+    <div id="history-container">読み込み中...</div>
+</div>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbzB6LyHclAbNsm_K93-mhardiUEk1nWw9l-wgP0xAvZTRU8WE-jnov1BvTxMmMmB67nCA/exec";
+
+    document.getElementById('work-date').valueAsDate = new Date();
+    let currentMode = "筋トレ";
+    let activeExercises = [];
+    let ergoParsedData = null;
+    let allLogs = [];
+
+    function changeMode(mode) {
+        currentMode = mode;
+        if(mode === "筋トレ") {
+            document.getElementById('btn-mode-work').classList.add('active');
+            document.getElementById('btn-mode-ergo').classList.remove('active');
+            document.getElementById('section-workout').classList.remove('hidden');
+            document.getElementById('section-ergo').classList.add('hidden');
+        } else {
+            document.getElementById('btn-mode-work').classList.remove('active');
+            document.getElementById('btn-mode-ergo').classList.add('active');
+            document.getElementById('section-workout').classList.add('hidden');
+            document.getElementById('section-ergo').classList.remove('hidden');
+        }
+    }
+
+    function toggleCustomExercise() {
+        const select = document.getElementById('exercise-select');
+        const customInput = document.getElementById('custom-exercise-name');
+        if(select.value === "その他") customInput.classList.remove('hidden');
+        else customInput.classList.add('hidden');
+    }
+
+    function addExerciseRow() {
+        const select = document.getElementById('exercise-select');
+        let name = select.value;
+        if(name === "その他") {
+            name = document.getElementById('custom-exercise-name').value.trim();
+            if(!name) return alert("種目名を入力してください");
+        }
+        activeExercises.push({ name: name, sets: [] });
+        renderWorkoutForm();
+        document.getElementById('custom-exercise-name').value = "";
+    }
+
+    function renderWorkoutForm() {
+        const container = document.getElementById('workout-list-container');
+        container.innerHTML = activeExercises.map((ex, exIdx) => `
+            <div class="exercise-row">
+                <strong>🏋️ ${ex.name}</strong>
+                <span style="color:red; cursor:pointer; float:right;" onclick="activeExercises.splice(${exIdx},1);renderWorkoutForm();">削除</span>
+                <div style="display:flex; gap:5px; margin-top:8px;">
+                    <input type="number" id="weight-${exIdx}" placeholder="kg" style="width:70px; margin:0;">
+                    <input type="number" id="reps-${exIdx}" placeholder="reps" style="width:70px; margin:0;">
+                    <button type="button" class="btn-add-set" style="margin:0;" onclick="addSetToExercise(${exIdx})">＋セット追加</button>
+                </div>
+                <div class="set-badge-group">
+                    ${ex.sets.map((s, sIdx) => `<span class="set-badge">${sIdx+1}度目: ${s.weight}kg × ${s.reps}回</span>`).join('')}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function addSetToExercise(exIdx) {
+        const w = document.getElementById(`weight-${exIdx}`).value;
+        const r = document.getElementById(`reps-${exIdx}`).value;
+        if(!w || !r) return alert("重量と回数を入力してください");
+        activeExercises[exIdx].sets.push({ weight: w, reps: r });
+        renderWorkoutForm();
+    }
+
+    async function uploadErgoPhoto(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const loading = document.getElementById('ocr-loading');
+        loading.style.display = 'block';
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ method: 'OCR_UPLOAD', image: e.target.result, mimeType: file.type })
+                });
+                const result = await response.json();
+                if (result.status === "success") {
+                    ergoParsedData = result;
+                    document.getElementById('preview-ergo-title').innerText = result.title;
+                    document.getElementById('preview-ergo-split').innerText = "500m平均: " + result.split;
+                    document.getElementById('ergo-preview-box').classList.remove('hidden');
+                } else {
+                    alert("解析エラー: " + result.message);
+                }
+            } catch(err) {
+                alert("通信に失敗しました: " + err.toString());
+            } finally {
+                loading.style.display = 'none';
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function handleSubmit() {
+        const user = document.getElementById('user-name').value;
+        const date = document.getElementById('work-date').value;
+        const memo = document.getElementById('day-memo').value;
+        const editIndex = document.getElementById('edit-index').value;
+
+        if(currentMode === "筋トレ" && activeExercises.length === 0) return alert("筋トレの種目を追加してください");
+        if(currentMode === "エルゴ" && !ergoParsedData) return alert("エルゴの写真を解析させてください");
+
+        const payload = {
+            method: editIndex ? 'PUT' : 'POST',
+            rowIndex: editIndex ? parseInt(editIndex) : null,
+            user, date, memo, type: currentMode,
+            exercises: activeExercises,
+            ergoResult: ergoParsedData
+        };
+
+        const loader = document.getElementById('global-loading');
+        loader.style.display = 'block';
+
+        try {
+            await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+            alert("データを保存しました");
+            resetForm();
+            fetchHistoryData();
+        } catch(e) {
+            alert("保存失敗: " + e.toString());
+        } finally {
+            loader.style.display = 'none';
+        }
+    }
+
+    function resetForm() {
+        document.getElementById('edit-index').value = "";
+        activeExercises = [];
+        ergoParsedData = null;
+        document.getElementById('workout-list-container').innerHTML = "";
+        document.getElementById('ergo-preview-box').classList.add('hidden');
+        document.getElementById('day-memo').value = "";
+    }
+
+    async function fetchHistoryData() {
+        const container = document.getElementById('history-container');
+        try {
+            const res = await fetch(API_URL);
+            allLogs = await res.json();
+            loadHistoryList();
+        } catch(e) {
+            container.innerHTML = "データ読み込みに失敗しました。";
+        }
+    }
+
+    function loadHistoryList() {
+        const container = document.getElementById('history-container');
+        const filterDate = document.getElementById('filter-date').value;
+        const filterUser = document.getElementById('filter-user').value;
+
+        // フィルター処理
+        const filtered = allLogs.filter(log => {
+            if (filterUser && log.user !== filterUser) return false;
+            if (filterDate) {
+                const d1 = new Date(log.date).toISOString().split('T')[0];
+                if (d1 !== filterDate) return false;
+            }
+            return true;
+        });
+
+        const displayLogs = [...filtered].reverse();
+        if(displayLogs.length === 0) { container.innerHTML = "該当データがありません"; return; }
+
+        container.innerHTML = displayLogs.map(log => {
+            const dateStr = new Date(log.date).toLocaleDateString('ja-JP');
+            let detailedHtml = "";
+
+            if (log.type === "筋トレ") {
+                detailedHtml = `<ul>` + log.details.map(ex => `
+                    <li><strong>${ex.name}</strong>: ${ex.sets.map((s,i)=>`[${i+1}set]${s.weight}kg×${s.reps}回`).join(', ')}</li>
+                `).join('') + `</ul>`;
+            } else {
+                // エルゴの詳細（詳細ボタンつき）
+                const summaryInfo = log.details.summary || {};
+                const laps = log.details.laps || [];
+                detailedHtml = `
+                    <div style="background:#fff; padding:10px; border-radius:6px; margin-bottom:5px;">
+                        📊 <strong>全体平均値</strong><br>
+                        時間: ${summaryInfo.time || '--'} | 距離: ${summaryInfo.distance || '--'}m <br>
+                        スプリット: ${summaryInfo.split || '--'}/500m | レート: ${summaryInfo.rate || '--'}spm
+                    </div>
+                    <button class="btn-detail-toggle" onclick="document.getElementById('laps-${log.rowIndex}').classList.toggle('hidden')">📋 詳細ラップを表示/非表示</button>
+                    <div id="laps-${log.rowIndex}" class="hidden" style="margin-top:8px; font-size:13px; background:#e9ecef; padding:8px; border-radius:6px;">
+                        ${laps.map((l, i) => `<div>ラップ ${i+1}: ${l.time} | ${l.meter}m | ${l.split} | ${l.rate}spm</div>`).join('')}
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="history-item ${log.type}" onclick="toggleDetailBox(${log.rowIndex}, event)">
+                    <strong>📅 ${dateStr}</strong> [${log.user}] <span style="float:right;">${log.type === '筋トレ' ? '🏋️' : '🚣'}</span>
+                    <div style="margin-top:5px; font-size:14px; color:#555;">${log.summary}</div>
+                </div>
+                <div id="detail-box-${log.rowIndex}" class="detail-box">
+                    ${detailedHtml}
+                    <p style="margin-top:10px; border-top:1px solid #ddd; padding-top:5px; font-size:13px; color:#666;">📝 メモ: ${log.memo || 'なし'}</p>
+                    <button style="background:#dc3545; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;" onclick="deleteLogData(${log.rowIndex})">削除</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function toggleDetailBox(id, event) {
+        if(event.target.tagName === 'BUTTON' || event.target.closest('#laps-'+id)) return;
+        document.getElementById(`detail-box-${id}`).classList.toggle('active-detail');
+    }
+
+    async function deleteLogData(id) {
+        if(!confirm("本当に削除しますか？")) return;
+        try {
+            await fetch(API_URL, { method: "POST", body: JSON.stringify({ method: 'DELETE', rowIndex: id }) });
+            fetchHistoryData();
+        } catch(e) { alert("削除失敗"); }
+    }
+
+    window.onload = fetchHistoryData;
+</script>
+</body>
+</html>
