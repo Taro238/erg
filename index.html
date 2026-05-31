@@ -13,7 +13,11 @@
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
         label { font-weight: bold; display: block; margin-top: 12px; font-size: 14px; }
         input, select, textarea { width: 100%; padding: 10px; margin: 5px 0 0 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; display: block; }
-        input[type="date"] { max-width: 100%; }
+        input[type="date"] { 
+            width: calc(100% - 2px) !important; /* 左右のボーダー分を引き算して強制フィット */
+            max-width: 100% !important; 
+            -webkit-appearance: none; /* iOS独自の表示バグをリセット */
+        }
         .hidden { display: none !important; }
         
         /* 筋トレ用動的フォーム */
