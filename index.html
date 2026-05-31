@@ -269,13 +269,13 @@
         // フィルター処理
         const filtered = allLogs.filter(log => {
             if (filterUser && !log.user.toLowerCase().includes(filterUser)) return false;
-           if (filterDate) {
-               // 時差（9時間）をプラスして日本の正しい日付に戻してから比較する
-               const localDate = new Date(log.date);
-               localDate.setHours(localDate.getHours() + 9); 
-               const d1 = localDate.toISOString().split('T')[0];
-               if (d1 !== filterDate) return false;
-           }
+            if (filterDate) {
+                // 時差（9時間）をプラスして日本の正しい日付に戻してから比較する
+                const localDate = new Date(log.date);
+                localDate.setHours(localDate.getHours() + 9); 
+                const d1 = localDate.toISOString().split('T')[0];
+                if (d1 !== filterDate) return false;
+            }
             return true;
         });
 
@@ -283,7 +283,10 @@
         if(displayLogs.length === 0) { container.innerHTML = "該当データがありません"; return; }
 
         container.innerHTML = displayLogs.map(log => {
-            const dateStr = new Date(log.date).toLocaleDateString('ja-JP');
+            // 【重要追加】表示用の日付も時差（9時間）を修正して日本時間に合わせる
+            const localDate = new Date(log.date);
+            localDate.setHours(localDate.getHours() + 9);
+            const dateStr = localDate.toLocaleDateString('ja-JP');
             let detailedHtml = "";
 
             if (log.type === "筋トレ") {
